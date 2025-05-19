@@ -1,0 +1,76 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: adot-config
+  namespace: namespace-monitoring
+data:
+  adot-config.yaml: |
+    receivers:
+      otlp:
+        protocols:
+          grpc:
+          http:
+
+      prometheus:
+        config:
+          scrape_configs:
+            - job_name: 'kubernetes-nodes'
+              kubernetes_sd_configs:
+                - role: node
+              relabel_configs:
+                - action: labelmap
+                  regex: __meta_kubernetes_node_label_(.+)
+            - job_name: 'kubernetes-pods'
+              kubernetes_sd_configs:
+                - role: pod
+              relabel_configs:
+                - action: labelmap
+                  regex: __meta_kubernetes_pod_label_(.+)
+
+    processors:
+      memory_limiter:
+        check_interval: 5s
+        limit_mib: 400
+        spike_limit_mib: 200
+
+      batch:
+        timeout: 10s
+        send_batch_size: 50
+
+      resourcedetection:
+        detectors: [env, system, ec2, ecs, eks]
+        timeout: 2s
+        override: false
+
+    exporters:
+      awsemf:
+        region: us-east-1
+        log_group_name: "/aws/containerinsights/eks-monitoring/performance"
+        namespace: "EKSContainerInsights"
+        log_stream_name: "{ClusterName}/{NodeName}"
+        dimension_rollup_option: NoDimensionRollup
+        metric_declarations:
+          - dimensions: [["ClusterName", "InstanceId"]]
+            metric_name_selectors:
+              - "^container_.*"
+              - "^node_.*"
+
+      awsxray:
+        region: us-east-1
+
+    service:
+      telemetry:
+        logs:
+          level: "info"
+
+      pipelines:
+        metrics:
+          receivers: [otlp, prometheus]
+          processors: [memory_limiter, resourcedetection, batch]
+          exporters: [awsemf]
+
+        traces:
+          receivers: [otlp]
+          processors: [resourcedetection, batch]
+          exporters: [awsxray]
+

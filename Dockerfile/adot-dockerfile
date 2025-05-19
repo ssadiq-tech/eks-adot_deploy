@@ -1,0 +1,17 @@
+FROM public.ecr.aws/aws-observability/aws-otel-collector:latest
+
+# Install packages: AWS CLI v2, Python, unzip, curl, etc.
+RUN apt-get update && \
+    apt-get install -y curl unzip python3 python3-pip zip less vim && \
+    ln -s /usr/bin/python3 /usr/bin/python && \
+    curl "https://awscli.amazonaws.com/awscli-exe-linux-x86_64.zip" -o "awscliv2.zip" && \
+    unzip awscliv2.zip && \
+    ./aws/install && \
+    rm -rf awscliv2.zip aws
+
+# Set default shell
+SHELL ["/bin/sh", "-c"]
+
+# Set default command to start the collector
+CMD ["/awscollector", "--config=/etc/otel/adot-config.yaml"]
+

@@ -1,0 +1,13 @@
+FROM nginx:latest
+
+# Install AWS CLI v2 dependencies
+RUN apt-get update && \
+    apt-get install -y curl unzip less groff jq python3-pip && \
+    pip3 install awscli && \
+    rm -rf /var/lib/apt/lists/*
+
+# Copy AWS credentials and config files (optional)
+COPY ./aws /root/.aws
+
+# Optional: Add entrypoint to use AWS CLI before starting nginx
+

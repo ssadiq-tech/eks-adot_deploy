@@ -1,0 +1,39 @@
+apiVersion: apps/v1
+kind: DaemonSet
+metadata:
+  name: adot-collector
+  namespace: namespace-monitoring
+  labels:
+    app: adot-collector
+spec:
+  selector:
+    matchLabels:
+      app: adot-collector
+  template:
+    metadata:
+      labels:
+        app: adot-collector
+      annotations:
+        eks.amazonaws.com/role-arn: arn:aws:iam::131332286832:role/irsa  # Ensure IRSA is correctly configured
+    spec:
+      serviceAccountName: serviceaccount-monitoring  # Must match the IRSA-linked ServiceAccount
+      containers:
+        - name: adot-collector
+          image: public.ecr.aws/aws-observability/aws-otel-collector:latest
+          imagePullPolicy: IfNotPresent
+          args:  # Use `args` instead of `command` for ADOT Collector
+            - "--config=/etc/otel/adot-config.yaml"
+          resources:
+            limits:
+              cpu: 500m
+              memory: 512Mi
+            requests:
+              cpu: 200m
+              memory: 256Mi
+          volumeMounts:
+            - name: adot-config-vol
+              mountPath: /etc/otel
+      volumes:
+        - name: adot-config-vol
+          configMap:
+            name: adot-config  # Ensure this ConfigMap exists in the same namespace
