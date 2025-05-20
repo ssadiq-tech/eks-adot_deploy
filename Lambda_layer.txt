@@ -1,0 +1,65 @@
+📦 Option 2: Build and publish your own Kubectl Lambda Layer
+Here’s a clean recipe to build and deploy one to your AWS account:
+
+1️⃣ Prepare build environment (Docker installed locally)
+Create a directory:
+
+bash
+Copy
+Edit
+mkdir lambda-kubectl-layer && cd lambda-kubectl-layer
+2️⃣ Create a Dockerfile
+Create Dockerfile:
+
+Dockerfile
+Copy
+Edit
+FROM public.ecr.aws/lambda/provided:al2
+
+RUN yum install -y tar gzip curl && \
+    curl -Lo kubectl https://dl.k8s.io/release/v1.29.0/bin/linux/amd64/kubectl && \
+    chmod +x ./kubectl && \
+    mkdir -p /opt/kubectl && \
+    mv ./kubectl /opt/kubectl/
+
+WORKDIR /opt
+RUN zip -r /opt/kubectl-layer.zip kubectl
+
+CMD ["bash"]
+3️⃣ Build and extract the zip
+bash
+Copy
+Edit
+docker build -t kubectl-layer .
+docker run --rm -v $(pwd):/local kubectl-layer cp /opt/kubectl-layer.zip /local/
+Now you have kubectl-layer.zip locally.
+
+4️⃣ Publish the Layer to your account
+bash
+Copy
+Edit
+aws lambda publish-layer-version \
+  --layer-name AWSLambdaKubernetesLayer \
+  --description "Kubectl CLI for EKS CDK deployments" \
+  --license-info "MIT" \
+  --zip-file fileb://kubectl-layer.zip \
+  --compatible-runtimes nodejs14.x nodejs16.x python3.9 \
+  --region us-east-1
+This command will return an ARN — use this ARN in your CDK code.
+
+📌 Then Update your CDK Code with your new Layer ARN
+Example:
+
+ts
+Copy
+Edit
+const kubectlLayer = eks.KubectlLayer.fromLayerVersionArn(
+  this,
+  'KubectlLayer',
+  'arn:aws:lambda:us-east-1:YOUR_ACCOUNT_ID:layer:AWSLambdaKubernetesLayer:1'
+);
+✅ Done — Now you can deploy your stack
+bash
+Copy
+Edit
+cdk deploy
